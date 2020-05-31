@@ -1,6 +1,11 @@
 <template>
-  <div class="container">
+  <div class="container" @click="()=>{canGiftFlag=false}">
     <div id="core">
+      <div class="dialog" v-if="canGiftFlag">
+        <div>
+          <div>您已经抽过奖了哦</div>
+        </div>
+      </div>
       <img src="./img/no_gift.png" alt class="noGift" v-if="noGiftFlag" />
       <img src="./img/gift1.png" alt class="noGift" v-if="gift1Flag" />
       <img src="./img/gift2.png" alt class="noGift" v-if="gift2Flag" />
@@ -8,13 +13,14 @@
       <img src="./img/gift4.png" alt class="noGift" v-if="gift4Flag" />
       <ul class="giftList">
         <li v-for="(gift,index) in giftList" :key="index" :class="{giftItem:true,active:gift}"></li>
-        <li class="btn" @click="handleClick"></li>
+        <li class="btn" @click.stop="handleClick"></li>
       </ul>
     </div>
   </div>
 </template>
 
 <script>
+import { canGift, whichGift, getOpenId } from "../service/service";
 export default {
   data() {
     return {
@@ -22,13 +28,29 @@ export default {
       intervalEvent: null,
       count: 0,
       curIndex: 0,
-      giftIndex: 4,
+      giftIndex: 0,
       noGiftFlag: false,
       gift1Flag: false,
       gift2Flag: false,
       gift3Flag: false,
-      gift4Flag: false
+      gift4Flag: false,
+      canGiftFlag: false,
+      openId: ""
     };
+  },
+
+  created() {
+    let code = this.getQueryVariable("code");
+
+    if (code) {
+      getOpenId(code).then(res => {
+        if (res.data && res.data.openid) {
+          this.openId = res.data.openid;
+        } else {
+          console.log("open ID 有问题");
+        }
+      });
+    }
   },
 
   mounted() {
@@ -49,9 +71,32 @@ export default {
   computed: {},
 
   methods: {
-    handleClick() {
-      this.intervalEvent = setInterval(this.gift, 100);
+    getQueryVariable(variable) {
+      var query = window.location.search.substring(1);
+      var vars = query.split("&");
+      for (var i = 0; i < vars.length; i++) {
+        var pair = vars[i].split("=");
+        if (pair[0] == variable) {
+          return pair[1];
+        }
+      }
+      return false;
     },
+    handleClick() {
+      canGift(this.openId).then(res => {
+        if (res.data == 0) {
+          //没抽过
+          this.intervalEvent = setInterval(this.gift, 100);
+          whichGift(this.openId).then(res => {
+            this.giftIndex = res.data ? res.data.price : 0;
+          });
+        } else {
+          //抽过了
+          this.canGiftFlag = true;
+        }
+      });
+    },
+    gifted() {},
     gift(cb) {
       this.giftList = this.giftList.map((gift, index) => {
         if (index == this.curIndex) return true;
@@ -78,7 +123,11 @@ export default {
         } else if (this.count == 3) {
           this.intervalEvent = setInterval(() => {
             this.gift(() => {
-              if (this.curIndex == this.giftIndex * 2 - 1) {
+              if (
+                (this.curIndex == this.giftIndex) == 0
+                  ? 0
+                  : this.giftIndex * 2 - 1
+              ) {
                 clearInterval(this.intervalEvent);
                 setTimeout(() => {
                   if (this.giftIndex == 0) {
@@ -86,15 +135,19 @@ export default {
                   } else if (this.giftIndex == 1) {
                     // this.intervalEvent = setInterval(this.gift, 500);
                     this.gift1Flag = true;
+                    this.gifted();
                   } else if (this.giftIndex == 2) {
                     // this.intervalEvent = setInterval(this.gift, 500);
                     this.gift2Flag = true;
+                    this.gifted();
                   } else if (this.giftIndex == 3) {
                     // this.intervalEvent = setInterval(this.gift, 500);
                     this.gift3Flag = true;
+                    this.gifted();
                   } else if (this.giftIndex == 4) {
                     // this.intervalEvent = setInterval(this.gift, 500);
                     this.gift4Flag = true;
+                    this.gifted();
                   }
                 }, 1000);
               }
@@ -115,7 +168,33 @@ export default {
   align-items: center;
   background-color: #000;
   #core {
-    background-image: url(./img/bg.png);
+    .dialog {
+      width: 80%;
+      height: 0;
+      padding-bottom: 50%;
+      background-image: url(./img/dialogBg.png);
+      background-repeat: no-repeat;
+      background-size: 100% auto;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      > div {
+        position: relative;
+        width: 100%;
+        padding-bottom: 62.5%;
+        > div {
+          width: 80%;
+          text-align: center;
+          position: absolute;
+          top: 50%;
+          left: 10%;
+          font-size: 24px;
+        }
+      }
+    }
+    background-image: url(./img/bg.jpg);
     background-size: contain;
     background-repeat: no-repeat;
     position: relative;
