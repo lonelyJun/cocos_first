@@ -21,6 +21,7 @@
 
 <script>
 import { canGift, whichGift, getOpenId } from "../service/service";
+import vx from "../utils/vxMixin";
 export default {
   data() {
     return {
@@ -38,7 +39,7 @@ export default {
       openId: ""
     };
   },
-
+  mixins: [vx],
   created() {
     let code = this.getQueryVariable("code");
 
@@ -51,6 +52,8 @@ export default {
         }
       });
     }
+    // console.log(vx);
+    this.wxConfig();
   },
 
   mounted() {
