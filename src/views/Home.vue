@@ -41,6 +41,14 @@ export default {
   },
   mixins: [vx],
   created() {
+    //加载背景图
+    let bg = new Image();
+    bg.src = require("./img/bg.jpg");
+    bg.onload = () => {
+      document.getElementById("core").style.backgroundImage =
+        "url(" + bg.src + ")";
+    };
+
     let code = this.getQueryVariable("code");
 
     if (code) {
@@ -197,7 +205,7 @@ export default {
         }
       }
     }
-    background-image: url(./img/bg.jpg);
+    background-color: red;
     background-size: contain;
     background-repeat: no-repeat;
     position: relative;
