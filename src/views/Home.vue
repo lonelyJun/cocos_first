@@ -50,6 +50,7 @@ export default {
     };
 
     let code = this.getQueryVariable("code");
+    x;
 
     if (code) {
       getOpenId(code).then(res => {
@@ -62,6 +63,12 @@ export default {
     }
     // console.log(vx);
     this.wxConfig();
+    this.updateAppMessageShareData(() => {
+      console.log("updateAppMessageShareData");
+    });
+    this.updateTimelineShareData(() => {
+      console.log("updateTimelineShareData");
+    });
   },
 
   mounted() {

@@ -1,9 +1,9 @@
 import Vue from "vue";
 
 let fix =
-  process.env.NODE_ENV === "production"
-    ? "http://tongan-gov.jihoukeji.vip/"
-    : "/";
+  process.env.NODE_ENV === "production" ?
+  "http://tongan-gov.jihoukeji.vip/" :
+  "/";
 
 export const canGift = (openid) => {
   return Vue.axios.get(fix + "api/get_game_record?openid=" + openid);
@@ -18,5 +18,5 @@ export const getOpenId = (code) => {
 };
 
 export const getWxConfig = () => {
-  return Vue.axios.get(fix + "api/get_config");
+  return Vue.axios.get(fix + "api/get_config?location=" + encodeURIComponent(window.location.href));
 };
