@@ -20,3 +20,7 @@ export const getOpenId = (code) => {
 export const getWxConfig = () => {
   return Vue.axios.get(fix + "api/get_config?location=" + encodeURIComponent(window.location.href));
 };
+
+export const shareCb = (openid) => {
+  return Vue.axios.get(fix + "api/share_cb?openid=" + openid);
+}
