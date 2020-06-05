@@ -1,17 +1,16 @@
 <template>
-  <div class="container" @click="()=>{canGiftFlag=false}">
+  <div class="container" @click="()=>{dialogFlag=false}">
     <div id="core">
-      <div class="dialog" v-if="canGiftFlag">
+      <div class="queryGiftResult" @click.stop="queryGiftResult"></div>
+      <div class="dialog" v-if="dialogFlag">
         <div>
-          <div>您已经抽过奖了哦</div>
+          <div>{{dialogText}}</div>
         </div>
       </div>
-      <div class="dialog" v-if="outOfAreaFlag">
-        <div>
-          <div>本次活动仅限同安区地区哦</div>
-        </div>
-      </div>
-      <div class="overlay" v-if="outOfAreaFlag || canGiftFlag"></div>
+      <div
+        class="overlay"
+        v-if=" dialogFlag || noGiftAndNoShareFlag || noGiftFlag || gift1Flag || gift2Flag || gift3Flag ||gift4Flag"
+      ></div>
       <img src="./img/no_gift.png" alt class="noGift" v-if="noGiftAndNoShareFlag" />
       <img src="./img/no_gift_but_no_share.png" alt class="noGift" v-if="noGiftFlag" />
       <img src="./img/gift1.png" alt class="noGift" v-if="gift1Flag" />
@@ -40,27 +39,32 @@ import wx from "weixin-js-sdk";
 export default {
   data() {
     return {
+      debug: "",
       shareFlag: false, //是否用掉了share
       giftList: [false, false, false, false, false, false, false, false],
       intervalEvent: null,
       count: 0,
       curIndex: 0,
       giftIndex: 0,
+      dialogFlag: false,
+      dialogText: "",
       noGiftFlag: false,
       noGiftAndNoShareFlag: false,
       gift1Flag: false,
       gift2Flag: false,
       gift3Flag: false,
       gift4Flag: false,
-      canGiftFlag: false,
       openId: "",
-      outOfAreaFlag: false,
       outOfArea: false
     };
   },
   // mixins: [vx],
   created() {
-    this.wxConfig();
+    let wxSet = this.wxConfig();
+    if (wxSet == false) {
+      this.dialogText = "微信设置出错！";
+      this.dialogFlag = true;
+    }
     //加载背景图
     let bg = new Image();
     bg.src = require("./img/bg.jpg");
@@ -70,6 +74,7 @@ export default {
     };
 
     let code = this.getQueryVariable("code");
+    this.debug = this.getQueryVariable("debug");
 
     if (code) {
       let openid = this.getCookie("openid");
@@ -81,7 +86,8 @@ export default {
             this.openId = res.data.openid;
             this.setCookie("openid", res.data.openid);
           } else {
-            console.log("open ID 有问题");
+            this.dialogText = "请先关注公众号";
+            this.dialogFlag = true;
           }
         });
       }
@@ -98,7 +104,7 @@ export default {
       this.gift2Flag = false;
       this.gift3Flag = false;
       this.gift4Flag = false;
-      this.outOfAreaFlag = false;
+      this.dialogFlag = false;
     });
 
     //计算可视宽高
@@ -118,9 +124,39 @@ export default {
   computed: {},
 
   methods: {
+    //查询中奖结果
+    queryGiftResult() {
+      canGift(this.openId).then(res => {
+        if (res.data) {
+          let can_lotto = res.data.can_lotto; //是否可以抽奖
+          let share_lotto = res.data.share_lotto; //分享投票用过否
+          let price = res.data.price;
+          if (can_lotto && !share_lotto) {
+            //  可以抽奖且没抽过
+            this.dialogText = "您还没有抽奖哦";
+            this.dialogFlag = true;
+          } else if (price == 1) {
+            this.gift1Flag = true;
+          } else if (price == 2) {
+            this.gift2Flag = true;
+          } else if (price == 3) {
+            this.gift3Flag = true;
+          } else if (price == 4) {
+            this.gift4Flag = true;
+          } else {
+            this.noGiftAndNoShareFlag = true;
+          }
+        } else {
+          this.noGiftAndNoShareFlag = true;
+        }
+      });
+    },
     //设置微信
     async wxConfig() {
       let res = await getWxConfig();
+      if (!res.data) {
+        return false;
+      }
       res.data.debug = false;
       res.data.jsApiList = [
         // "updateTimelineShareData",
@@ -170,7 +206,9 @@ export default {
         imgUrl: "http://tongan-gov.jihoukeji.vip/share_icon.png",
         success() {
           // 用户确认分享后执行的回调函数
-          shareCb(_self.openId);
+          if (_self.giftIndex == 0) {
+            shareCb(_self.openId);
+          }
         }
       });
     },
@@ -187,7 +225,9 @@ export default {
         imgUrl: "http://tongan-gov.jihoukeji.vip/share_icon.png",
         success() {
           // 用户确认分享后执行的回调函数
-          shareCb(_self.openId);
+          if (_self.giftIndex == 0) {
+            shareCb(_self.openId);
+          }
         }
       });
     },
@@ -230,22 +270,24 @@ export default {
     // },
 
     getLocation() {
+      let _self = this;
       wx.getLocation({
         type: "wgs84", // 默认为wgs84的gps坐标，如果要返回直接给openLocation用的火星坐标，可传入'gcj02'
         success(res) {
-          this.processLocation(res);
+          _self.processLocation(res);
         }
       });
     },
 
     processLocation(res) {
-      let lat = res.latitude;
-      let lon = res.longitude;
+      let lat = res.latitude ? res.latitude : 0;
+      let lon = res.longitude ? res.longitude : 0;
       if (
-        lon >= 117.978612 &&
-        lon <= 118.258061 &&
-        lat <= 24.912773 &&
-        lat >= 24.674489
+        (lon >= 117.978612 &&
+          lon <= 118.258061 &&
+          lat <= 24.912773 &&
+          lat >= 24.674489) ||
+        this.debug
       ) {
         this.outOfArea = false;
       } else {
@@ -283,16 +325,18 @@ export default {
       this.curIndex = 0;
       this.giftIndex = 0;
       this.noGiftFlag = false;
+      this.shareFlag = false;
       this.gift1Flag = false;
       this.gift2Flag = false;
       this.gift3Flag = false;
       this.gift4Flag = false;
       if (this.outOfArea) {
-        this.outOfAreaFlag = true;
+        this.dialogText = "本次活动仅限同安区地区哦";
+        this.dialogFlag = true;
       } else {
         canGift(this.openId).then(res => {
-          if (res.data.can_lotto) {
-            this.shareFlag = !res.data.first_lotto;
+          if (res.data.can_lotto && res.data.price == 0) {
+            this.shareFlag = res.data.shared;
             //没抽过
             this.intervalEvent = setInterval(this.gift, 100);
             whichGift(this.openId).then(res => {
@@ -300,7 +344,8 @@ export default {
             });
           } else {
             //抽过了
-            this.canGiftFlag = true;
+            this.dialogText = "您已经抽过奖了哦";
+            this.dialogFlag = true;
           }
         });
       }
@@ -333,9 +378,8 @@ export default {
           this.intervalEvent = setInterval(() => {
             this.gift(() => {
               if (
-                this.curIndex == (this.giftIndex == 0)
-                  ? 0
-                  : this.giftIndex * 2 - 1
+                this.curIndex ==
+                (this.giftIndex == 0 ? 0 : this.giftIndex * 2 - 1)
               ) {
                 clearInterval(this.intervalEvent);
                 setTimeout(() => {
@@ -381,6 +425,18 @@ export default {
   align-items: center;
   background-color: #000;
   #core {
+    .queryGiftResult {
+      width: 40%;
+      padding-bottom: 10%;
+      background-image: url(./img/queryGiftResultBtn.png);
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-size: 100% auto;
+      z-index: 3;
+      top: 2%;
+      right: 0;
+      position: absolute;
+    }
     .overlay {
       width: 100%;
       height: 100%;
@@ -428,7 +484,7 @@ export default {
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      z-index: 5;
+      z-index: 8;
     }
 
     .btn {
