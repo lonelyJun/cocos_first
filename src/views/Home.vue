@@ -31,7 +31,8 @@ import {
   whichGift,
   getOpenId,
   getWxConfig,
-  shareCb
+  shareCb,
+  isOnline
 } from "../service/service";
 // import vx from "../utils/vxMixin";
 import wx from "weixin-js-sdk";
@@ -55,7 +56,8 @@ export default {
       gift3Flag: false,
       gift4Flag: false,
       openId: "",
-      outOfArea: false
+      outOfArea: false,
+      online: true
     };
   },
   // mixins: [vx],
@@ -65,22 +67,14 @@ export default {
       this.dialogText = "微信设置出错！";
       this.dialogFlag = true;
     }
-    //加载背景图
-    let bg = new Image();
-    bg.src = require("./img/bg.jpg");
-    bg.onload = () => {
-      document.getElementById("core").style.backgroundImage =
-        "url(" + bg.src + ")";
-    };
 
     let code = this.getQueryVariable("code");
     this.debug = this.getQueryVariable("debug");
-
-    if (code) {
-      let openid = this.getCookie("openid");
-      if (openid) {
-        this.openId = openid;
-      } else {
+    let openid = this.getCookie("openid");
+    if (openid) {
+      this.openId = openid;
+    } else {
+      if (code) {
         getOpenId(code).then(res => {
           if (res.data && res.data.openid) {
             this.openId = res.data.openid;
@@ -97,7 +91,16 @@ export default {
   },
 
   mounted() {
+    isOnline().then(res => {
+      if (res.data) {
+        this.online = res.data.online;
+      } else {
+        this.online = false;
+      }
+    });
+
     document.addEventListener("click", () => {
+      this.$router.push({ path: "/getGift" });
       this.noGiftAndNoShareFlag = false;
       this.noGiftFlag = false;
       this.gift1Flag = false;
@@ -117,6 +120,14 @@ export default {
       document.getElementById("core").style.height =
         (document.body.offsetWidth * 1920) / 1080 + "px";
     }
+
+    //加载背景图
+    let bg = new Image();
+    bg.src = require("./img/bg.jpg");
+    bg.onload = () => {
+      document.getElementById("core").style.backgroundImage =
+        "url(" + bg.src + ")";
+    };
   },
 
   components: {},
@@ -126,30 +137,35 @@ export default {
   methods: {
     //查询中奖结果
     queryGiftResult() {
-      canGift(this.openId).then(res => {
-        if (res.data) {
-          let can_lotto = res.data.can_lotto; //是否可以抽奖
-          let share_lotto = res.data.share_lotto; //分享投票用过否
-          let price = res.data.price;
-          if (can_lotto && !share_lotto) {
-            //  可以抽奖且没抽过
-            this.dialogText = "您还没有抽奖哦";
-            this.dialogFlag = true;
-          } else if (price == 1) {
-            this.gift1Flag = true;
-          } else if (price == 2) {
-            this.gift2Flag = true;
-          } else if (price == 3) {
-            this.gift3Flag = true;
-          } else if (price == 4) {
-            this.gift4Flag = true;
+      if (this.openId) {
+        canGift(this.openId).then(res => {
+          if (res.data) {
+            let can_lotto = res.data.can_lotto; //是否可以抽奖
+            let share_lotto = res.data.share_lotto; //分享投票用过否
+            let price = res.data.price;
+            if (can_lotto && !share_lotto) {
+              //  可以抽奖且没抽过
+              this.dialogText = "您还没有抽奖哦";
+              this.dialogFlag = true;
+            } else if (price == 1) {
+              this.gift1Flag = true;
+            } else if (price == 2) {
+              this.gift2Flag = true;
+            } else if (price == 3) {
+              this.gift3Flag = true;
+            } else if (price == 4) {
+              this.gift4Flag = true;
+            } else {
+              this.noGiftAndNoShareFlag = true;
+            }
           } else {
             this.noGiftAndNoShareFlag = true;
           }
-        } else {
-          this.noGiftAndNoShareFlag = true;
-        }
-      });
+        });
+      } else {
+        this.dialogText = "未知用户";
+        this.dialogFlag = true;
+      }
     },
     //设置微信
     async wxConfig() {
@@ -283,10 +299,10 @@ export default {
       let lat = res.latitude ? res.latitude : 0;
       let lon = res.longitude ? res.longitude : 0;
       if (
-        (lon >= 117.978612 &&
-          lon <= 118.258061 &&
-          lat <= 24.912773 &&
-          lat >= 24.674489) ||
+        (lon >= 117.915372 &&
+          lon <= 118.267067 &&
+          lat <= 24.909364 &&
+          lat >= 24.601853) ||
         this.debug
       ) {
         this.outOfArea = false;
@@ -330,24 +346,32 @@ export default {
       this.gift2Flag = false;
       this.gift3Flag = false;
       this.gift4Flag = false;
-      if (this.outOfArea) {
+      if (!this.online) {
+        this.dialogText = "活动已经结束";
+        this.dialogFlag = true;
+      } else if (this.outOfArea) {
         this.dialogText = "本次活动仅限同安区地区哦";
         this.dialogFlag = true;
       } else {
-        canGift(this.openId).then(res => {
-          if (res.data.can_lotto && res.data.price == 0) {
-            this.shareFlag = res.data.shared;
-            //没抽过
-            this.intervalEvent = setInterval(this.gift, 100);
-            whichGift(this.openId).then(res => {
-              this.giftIndex = res.data ? res.data.price : 0;
-            });
-          } else {
-            //抽过了
-            this.dialogText = "您已经抽过奖了哦";
-            this.dialogFlag = true;
-          }
-        });
+        if (this.openId) {
+          canGift(this.openId).then(res => {
+            if (res.data.can_lotto && res.data.price == 0) {
+              this.shareFlag = res.data.shared;
+              //没抽过
+              this.intervalEvent = setInterval(this.gift, 100);
+              whichGift(this.openId).then(res => {
+                this.giftIndex = res.data ? res.data.price : 0;
+              });
+            } else {
+              //抽过了
+              this.dialogText = "您已经抽过奖了哦";
+              this.dialogFlag = true;
+            }
+          });
+        } else {
+          this.dialogText = "您是否未关注本公众号";
+          this.dialogFlag = true;
+        }
       }
     },
     gifted() {},

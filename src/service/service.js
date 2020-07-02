@@ -2,7 +2,7 @@ import Vue from "vue";
 
 let fix =
   process.env.NODE_ENV === "production" ?
-  "http://tongan-gov.jihoukeji.vip/" :
+  "http://tongan-gov.jjymw.com/" :
   "/";
 
 export const canGift = (openid) => {
@@ -23,4 +23,12 @@ export const getWxConfig = () => {
 
 export const shareCb = (openid) => {
   return Vue.axios.get(fix + "api/share_cb?openid=" + openid);
+}
+
+export const isOnline = () => {
+  return Vue.axios.get(fix + "api/is_online");
+}
+
+export const receivePrice = (openid) => {
+  return Vue.axios.get(fix + "api/receive_price?openid=" + openid)
 }

@@ -1,16 +1,15 @@
 import Vue from 'vue'
 import VueRouter from 'vue-router'
 import Home from '../views/Home.vue'
-// import Url from '../views/Url.vue'
+import GetGift from '../views/GetGift.vue'
 
 Vue.use(VueRouter)
 
-const routes = [
-  //   {
-  //   path: '/',
-  //   name: 'Url',
-  //   component: Url
-  // },
+const routes = [{
+    path: '/getGift',
+    name: 'GetGift',
+    component: GetGift
+  },
   {
     path: '/',
     name: 'Home',
@@ -19,6 +18,7 @@ const routes = [
 ]
 
 const router = new VueRouter({
+  mode: 'history',
   routes
 })
 
